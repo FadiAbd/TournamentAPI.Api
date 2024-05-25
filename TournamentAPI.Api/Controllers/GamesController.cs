@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TournamentAPI.Core.Dto;
 using TournamentAPI.Core.Entities;
 using TournamentAPI.Core.Repositories;
 using TournamentAPI.Data.Data;
@@ -16,42 +19,61 @@ namespace TournamentAPI.Api.Controllers
     public class GamesController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public GamesController(IUnitOfWork unitOfWork)
+        public GamesController(IUnitOfWork unitOfWork,IMapper mapper)
         {
             _unitOfWork = unitOfWork;
+            _mapper = mapper;
         }
 
         // GET: api/Games
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Game>>> GetGames()
+        public async Task<ActionResult<IEnumerable<GameDto>>> GetGames()
         {
-            var games = await _unitOfWork.Games.GetAllAsync();
-            return Ok(games);
+            try
+            {
+                var games = await _unitOfWork.Games.GetAllAsync();
+                var gameDtos = _mapper.Map<IEnumerable<GameDto>>(games);
+                return Ok(gameDtos);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // GET: api/Games/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Game>> GetGame(int id)
+        public async Task<ActionResult<GameDto>> GetGame(int id)
         {
-            var game = await _unitOfWork.Games.GetAsync(id);
-            if (game == null)
+            try
             {
-                return NotFound();
+                var game = await _unitOfWork.Games.GetAsync(id);
+                if (game == null)
+                {
+                    return NotFound();
+                }
+                var gameDto = _mapper.Map<GameDto>(game);
+                return Ok(gameDto);
             }
-            return Ok(game);
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // PUT: api/Games/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutGame(int id, Game game)
+        public async Task<IActionResult> PutGame(int id, GameDto gameDto)
         {
-            if (id != game.Id)
+            var existingGame = await _unitOfWork.Games.GetAsync(id);
+            if (existingGame == null)
             {
-                return BadRequest();
+                return NotFound();
             }
-
-            await _unitOfWork.Games.UpdateAsync(game);
+            _mapper.Map(gameDto, existingGame);
+            await _unitOfWork.Games.UpdateAsync(existingGame);
 
             try
             {
@@ -74,13 +96,38 @@ namespace TournamentAPI.Api.Controllers
 
         // POST: api/Games
         [HttpPost]
-        public async Task<ActionResult<Game>> PostGame(Game game)
+        public async Task<ActionResult<GameDto>> PostGame(GameDto gameDto)
         {
+            var game = _mapper.Map<Game>(gameDto);
             await _unitOfWork.Games.AddAsync(game);
             await _unitOfWork.CompleteAsync();
-
-            return CreatedAtAction(nameof(GetGame), new { id = game.Id }, game);
+            var createdGameDto = _mapper.Map<GameDto>(game);
+            return CreatedAtAction(nameof(GetGame), new { id = game.Id }, createdGameDto);
         }
+
+        [HttpPatch("{GameId}")]
+        public async Task<IActionResult> PatchGame(int gameId, JsonPatchDocument<GameDto> patchDocument)
+        {
+            var game = await _unitOfWork.Games.GetAsync(gameId);
+            if (game == null)
+            {
+                return NotFound();
+            }
+
+            var gameDto = _mapper.Map<GameDto>(game);
+            patchDocument.ApplyTo(gameDto, ModelState);
+
+            if (!TryValidateModel(gameDto))
+            {
+                return BadRequest(ModelState);
+            }
+
+            _mapper.Map(gameDto, game);
+            await _unitOfWork.CompleteAsync();
+
+            return NoContent();
+        }
+
 
         // DELETE: api/Games/5
         [HttpDelete("{id}")]
