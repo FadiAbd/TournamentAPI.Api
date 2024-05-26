@@ -113,27 +113,34 @@ namespace TournamentAPI.Api.Controllers
             return CreatedAtAction(nameof(GetTournament), new { id = tournament.Id }, createdTournamentDto);
         }
 
-        [HttpPatch("{tournamentId}")]
-        public async Task<ActionResult<TournamentDto>> PatchTournament(int tournamentId,
-            JsonPatchDocument<TournamentDto> patchDocument)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> PatchTournament(int id, JsonPatchDocument<TournamentDto> patchDocument)
         {
-            var tournament = await _unitOfWork.Tournaments.GetAsync(tournamentId);
-            if (tournament == null)
+            try
             {
-                return NotFound();
-            }
-            var tournadoDto = _mapper.Map<TournamentDto>(tournament);
-            patchDocument.ApplyTo(tournadoDto, ModelState);
+                var tournament = await _unitOfWork.Tournaments.GetAsync(id);
+                if (tournament == null)
+                {
+                    return NotFound();
+                }
 
-            if (!TryValidateModel(tournadoDto))
+                var tournamentDto = _mapper.Map<TournamentDto>(tournament);
+                patchDocument.ApplyTo(tournamentDto, ModelState);
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                _mapper.Map(tournamentDto, tournament);
+                await _unitOfWork.CompleteAsync();
+
+                return NoContent();
+            }
+            catch (Exception)
             {
-                return BadRequest(ModelState);
+                return StatusCode(500, "Internal server error");
             }
-            _mapper.Map( tournadoDto, tournament);
-            await _unitOfWork.CompleteAsync();
-
-            return NoContent();
-
         }
 
         // DELETE: api/Tournaments/5

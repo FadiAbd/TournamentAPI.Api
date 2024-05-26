@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.JsonPatch;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,5 +16,6 @@ namespace TournamentAPI.Core.Repositories
         Task AddAsync(Tournament tournament);
         Task UpdateAsync(Tournament tournament);
         Task RemoveAsync(int id);
+    
     }
 }

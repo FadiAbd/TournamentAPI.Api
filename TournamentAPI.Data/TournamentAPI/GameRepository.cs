@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,6 +56,8 @@ namespace TournamentAPI.Data.TournamentAPI
             _context.Games.Update(game);
             await _context.SaveChangesAsync();
         }
+
+       
     }
 
 }
